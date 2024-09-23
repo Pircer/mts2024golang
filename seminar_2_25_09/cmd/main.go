@@ -5,6 +5,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	_ "github.com/swaggo/swag/example/celler/httputil"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type User struct {
@@ -23,15 +28,26 @@ var (
 	nextID = 0
 )
 
+// @title API Примера для семинара
+// @version 0.1
+// @description Пhимер описания API демонстрации на семинаре
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
+
 func main() {
-	http.HandleFunc("/users", handleUsersList)
+	http.HandleFunc("/users", handleUsers)
 	http.HandleFunc("/users/", handleUser)
+	http.Handle("/swagger/*", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		slog.Debug(err.Error())
 	}
 }
 
-func handleUsersList(w http.ResponseWriter, r *http.Request) {
+func handleUsers(w http.ResponseWriter, r *http.Request) {
 	var err *HTTPError
 	switch r.Method {
 	case "POST":
@@ -76,6 +92,17 @@ func handleUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// createUser godoc
+// @Summary Создать нового пользователя
+// @Description Создать нового пользователя
+// @Accept  json
+// @Produce  json
+// @Param   user	body	User	true	"Данные пользователя"
+// @Success 200 {object} User
+// @Failure 400 {object} HTTPError
+// @Failure 404 {object} HTTPError
+// @Failure 500 {object} HTTPError
+// @Router /users [post]
 func createUser(w http.ResponseWriter, r *http.Request) *HTTPError {
 	var user User
 	err := json.NewDecoder(r.Body).Decode(&user)
@@ -100,6 +127,16 @@ func createUser(w http.ResponseWriter, r *http.Request) *HTTPError {
 	return nil
 }
 
+// getUserList godoc
+// @Summary Получить список пользователей
+// @Description Получить массив с информацией о пользователях системы
+// @Accept  json
+// @Produce  json
+// @Success 200 {array} User
+// @Failure 400 {object} HTTPError
+// @Failure 404 {object} HTTPError
+// @Failure 500 {object} HTTPError
+// @Router /users [get]
 func getUsersList(w http.ResponseWriter, _ *http.Request) *HTTPError {
 	userList := make([]User, 0)
 	for _, user := range users {
@@ -115,6 +152,17 @@ func getUsersList(w http.ResponseWriter, _ *http.Request) *HTTPError {
 	return nil
 }
 
+// getUser godoc
+// @Summary Вывести информацию поп пользователю
+// @Description Получить информацию пользователя по заданному ID
+// @Accept  json
+// @Produce  json
+// @Param   id	path		int		true	"ID пользователя"
+// @Success 200 {object} User
+// @Failure 400 {object} HTTPError
+// @Failure 404 {object} HTTPError
+// @Failure 500 {object} HTTPError
+// @Router /users/{id} [get]
 func getUser(w http.ResponseWriter, user *User) *HTTPError {
 	if err := json.NewEncoder(w).Encode(user); err != nil {
 		return &HTTPError{
