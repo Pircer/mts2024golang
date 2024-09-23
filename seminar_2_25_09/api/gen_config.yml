@@ -1,0 +1,4 @@
+generate:
+  - types
+  - std-http-server
+  - skip-prune

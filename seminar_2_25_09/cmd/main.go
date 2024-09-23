@@ -3,8 +3,8 @@ package main
 import (
 	"encoding/json"
 	"log/slog"
+	"mts2024golang/seminar_2_25_09/api"
 	"net/http"
-	"strconv"
 )
 
 type User struct {
@@ -13,156 +13,76 @@ type User struct {
 	Age  int    `json:"age"`
 }
 
-type HTTPError struct {
-	Err        error
-	HTTPStatus int
+type Server struct {
+	Users  map[int]*User
+	NextID int
 }
 
-var (
-	users  = make(map[int]*User)
-	nextID = 0
-)
-
-// @title API Примера для семинара
-// @version 0.1
-// @description Пример описания API демонстрации на семинаре
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host localhost:8080
-// @BasePath /
-
-func main() {
-	http.HandleFunc("/users", handleUsers)
-	http.HandleFunc("/users/", handleUser)
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		slog.Debug(err.Error())
+func NewServer() *Server {
+	return &Server{
+		Users:  make(map[int]*User),
+		NextID: 0,
 	}
 }
 
-func handleUsers(w http.ResponseWriter, r *http.Request) {
-	var err *HTTPError
-	switch r.Method {
-	case "POST":
-		err = createUser(w, r)
-	case "GET":
-		err = getUsersList(w, r)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	if err != nil {
-		http.Error(w, err.Err.Error(), err.HTTPStatus)
-		return
-	}
-}
-
-func handleUser(w http.ResponseWriter, r *http.Request) {
-	var handlerErr *HTTPError
-
-	id, err := strconv.Atoi(r.URL.Path[len("/users/"):])
-	if err != nil {
-		http.Error(w, "Bad argument", http.StatusBadRequest)
-		http.Error(w, "Bad argument", http.StatusBadRequest)
-	}
-	user, exists := users[id]
-
-	if !exists {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	switch r.Method {
-	case "GET":
-		handlerErr = getUser(w, user)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-
-	if handlerErr != nil {
-		http.Error(w, handlerErr.Err.Error(), handlerErr.HTTPStatus)
-		return
-	}
-}
-
-// createUser godoc
-// @Summary Создать нового пользователя
-// @Description Создать нового пользователя
-// @Accept  json
-// @Produce  json
-// @Param   user	body	User	true	"Данные пользователя"
-// @Success 200 {object} User
-// @Failure 400 {object} HTTPError
-// @Failure 404 {object} HTTPError
-// @Failure 500 {object} HTTPError
-// @Router /users [post]
-func createUser(w http.ResponseWriter, r *http.Request) *HTTPError {
-	var user User
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		return &HTTPError{
-			Err:        err,
-			HTTPStatus: http.StatusBadRequest,
-		}
-	}
-	user.ID = nextID
-	nextID += 1
-	users[user.ID] = &user
-
-	err = json.NewEncoder(w).Encode(users[user.ID])
-	if err != nil {
-		return &HTTPError{
-			Err:        err,
-			HTTPStatus: http.StatusInternalServerError,
-		}
-	}
-
-	return nil
-}
-
-// getUserList godoc
-// @Summary Получить список пользователей
-// @Description Получить массив с информацией о пользователях системы
-// @Accept  json
-// @Produce  json
-// @Success 200 {array} User
-// @Failure 400 {object} HTTPError
-// @Failure 404 {object} HTTPError
-// @Failure 500 {object} HTTPError
-// @Router /users [get]
-func getUsersList(w http.ResponseWriter, _ *http.Request) *HTTPError {
+// Получить массив с информацией о пользователях системы
+// (GET /users)
+func (s *Server) GetUsersList(w http.ResponseWriter, _ *http.Request) {
 	userList := make([]User, 0)
-	for _, user := range users {
+	for _, user := range s.Users {
 		userList = append(userList, *user)
 	}
 
 	if err := json.NewEncoder(w).Encode(userList); err != nil {
-		return &HTTPError{
-			Err:        err,
-			HTTPStatus: http.StatusInternalServerError,
-		}
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
-	return nil
 }
 
-// getUser godoc
-// @Summary Вывести информацию поп пользователю
-// @Description Получить информацию пользователя по заданному ID
-// @Accept  json
-// @Produce  json
-// @Param   id	path		int		true	"ID пользователя"
-// @Success 200 {object} User
-// @Failure 400 {object} HTTPError
-// @Failure 404 {object} HTTPError
-// @Failure 500 {object} HTTPError
-// @Router /users/{id} [get]
-func getUser(w http.ResponseWriter, user *User) *HTTPError {
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		return &HTTPError{
-			Err:        err,
-			HTTPStatus: http.StatusInternalServerError,
-		}
+// Создать нового пользователя
+// (POST /users)
+func (s *Server) CreateNewUser(w http.ResponseWriter, r *http.Request) {
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		http.Error(w, "Bad argument", http.StatusBadRequest)
 	}
-	return nil
+	user.ID = s.NextID
+	s.NextID += 1
+	s.Users[user.ID] = &user
+
+	err = json.NewEncoder(w).Encode(s.Users[user.ID])
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+// Получить информацию пользователя по заданному ID
+// (GET /users/{id})
+func (s *Server) GetUserByID(w http.ResponseWriter, _ *http.Request, id int) {
+	user, ok := s.Users[id]
+	if !ok {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(user); err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
+}
+
+func main() {
+	server := NewServer()
+
+	r := http.NewServeMux()
+
+	h := api.HandlerFromMux(server, r)
+
+	s := &http.Server{
+		Handler: h,
+		Addr:    "0.0.0.0:8080",
+	}
+
+	if err := s.ListenAndServe(); err != nil {
+		slog.Debug(err.Error())
+	}
 }

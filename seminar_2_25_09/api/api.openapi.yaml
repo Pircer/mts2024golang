@@ -1,0 +1,148 @@
+openapi: 3.0.3
+info:
+  description: Пример описания API демонстрации на семинаре
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: API Примера для семинара
+  version: "0.1"
+  contact:
+    name: МТС Диджитал
+
+servers:
+  - url: http://localhost:8080/
+    description: Сервис для демонстрации на семинаре 2509
+
+components:
+  schemas:
+
+    User:
+      description: Объект для информации о пользователе
+      type: object
+      properties:
+        age:
+          description: Возраст
+          type: integer
+        id:
+          description: Идентификатор пользователя
+          type: integer
+        name:
+          description: Имя пользователя
+          type: string
+
+    Error:
+      description: Сообщение об ошибках
+      type: object
+      properties:
+        message:
+          type: string
+
+paths:
+  /users:
+    get:
+      summary: Получить массив с информацией о пользователях системы
+      operationId: GetUsersList
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Создать нового пользователя
+      operationId: CreateNewUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  description: Имя пользователя
+                  type: string
+                age:
+                  description: Возраст
+                  type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/{id}:
+    get:
+      summary: Получить информацию пользователя по заданному ID
+      operationId: GetUserByID
+      parameters:
+        - name: id
+          description: ID пользователя
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
