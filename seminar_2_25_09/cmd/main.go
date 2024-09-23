@@ -5,11 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-
-	_ "github.com/swaggo/swag/example/celler/httputil"
-
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type User struct {
@@ -30,7 +25,7 @@ var (
 
 // @title API Примера для семинара
 // @version 0.1
-// @description Пhимер описания API демонстрации на семинаре
+// @description Пример описания API демонстрации на семинаре
 
 // @license.name Apache 2.0
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
@@ -41,7 +36,6 @@ var (
 func main() {
 	http.HandleFunc("/users", handleUsers)
 	http.HandleFunc("/users/", handleUser)
-	http.Handle("/swagger/*", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	if err := http.ListenAndServe(":8080", nil); err != nil {
 		slog.Debug(err.Error())
 	}
