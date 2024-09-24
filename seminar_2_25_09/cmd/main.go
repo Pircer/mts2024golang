@@ -1,10 +1,18 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log/slog"
 	"mts2024golang/seminar_2_25_09/api"
+	"net"
 	"net/http"
+	"os"
+	"strconv"
+	"sync"
 )
 
 type User struct {
@@ -16,6 +24,8 @@ type User struct {
 type Server struct {
 	Users  map[int]*User
 	NextID int
+
+	apiv1pb.UnimplementedSeminarServiceServer
 }
 
 func NewServer() *Server {
@@ -27,62 +37,105 @@ func NewServer() *Server {
 
 // Получить массив с информацией о пользователях системы
 // (GET /users)
-func (s *Server) GetUsersList(w http.ResponseWriter, _ *http.Request) {
-	userList := make([]User, 0)
+func (s *Server) GetUsersList(_ context.Context, _ *apiv1pb.GetUserListRequest) (*apiv1pb.GetUserListsResponse, error) {
+
+	userList := &apiv1pb.GetUserListsResponse{
+		Users: make([]*apiv1pb.User, 0),
+	}
 	for _, user := range s.Users {
-		userList = append(userList, *user)
+		addUser := &apiv1pb.User{
+			Id:   int32(user.ID),
+			Name: user.Name,
+			Age:  strconv.Itoa(user.Age),
+		}
+		userList.Users = append(userList.Users, addUser)
 	}
 
-	if err := json.NewEncoder(w).Encode(userList); err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return userList, nil
 }
 
 // Создать нового пользователя
 // (POST /users)
-func (s *Server) CreateNewUser(w http.ResponseWriter, r *http.Request) {
-	var user User
-	err := json.NewDecoder(r.Body).Decode(&user)
-	if err != nil {
-		http.Error(w, "Bad argument", http.StatusBadRequest)
+func (s *Server) CreateUser(_ context.Context, in *apiv1pb.CreateUsersRequest) (*apiv1pb.CreateUserResponse, error) {
+
+	user := User{
+		ID:   s.NextID,
+		Name: in.GetName(),
+		Age:  int(in.GetAge()),
 	}
-	user.ID = s.NextID
 	s.NextID += 1
 	s.Users[user.ID] = &user
 
-	err = json.NewEncoder(w).Encode(s.Users[user.ID])
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return &apiv1pb.CreateUserResponse{
+		User: &apiv1pb.User{
+			Id:   int32(user.ID),
+			Name: user.Name,
+			Age:  strconv.Itoa(user.Age),
+		},
+	}, nil
 }
 
 // Получить информацию пользователя по заданному ID
 // (GET /users/{id})
-func (s *Server) GetUserByID(w http.ResponseWriter, _ *http.Request, id int) {
-	user, ok := s.Users[id]
+func (s *Server) GetUsersById(_ context.Context, in *apiv1pb.GetUsersByIdRequest) (*apiv1pb.GetUsersByIdResponse, error) {
+	user, ok := s.Users[int(in.UserId)]
 	if !ok {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
+		return nil, errors.New("User not found")
 	}
-
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-	}
+	return &apiv1pb.GetUsersByIdResponse{
+		User: &apiv1pb.User{
+			Id:   int32(user.ID),
+			Name: user.Name,
+			Age:  strconv.Itoa(user.Age),
+		},
+	}, nil
 }
 
 func main() {
+
+	wg := sync.WaitGroup{}
+	grpcAddress := "localhost:9000"
+	httpAddress := "localhost:8080"
 	server := NewServer()
 
-	r := http.NewServeMux()
-
-	h := api.HandlerFromMux(server, r)
-
-	s := &http.Server{
-		Handler: h,
-		Addr:    "0.0.0.0:8080",
-	}
-
-	if err := s.ListenAndServe(); err != nil {
+	grpcListen, err := net.Listen("tcp", grpcAddress)
+	if err != nil {
 		slog.Debug(err.Error())
+		os.Exit(1)
 	}
+	grpcServer := grpc.NewServer()
+	apiv1pb.RegisterSeminarServiceServer(grpcServer, server)
+
+	wg.Add(1)
+	go func() {
+		if err := grpcServer.Serve(grpcListen); err != nil {
+			slog.Debug(err.Error())
+		}
+		wg.Done()
+	}()
+
+	ctx := context.Background()
+	mux := runtime.NewServeMux()
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
+	err = apiv1pb.RegisterSeminarServiceHandlerFromEndpoint(ctx, mux, grpcAddress, opts)
+	if err != nil {
+		slog.Debug(err.Error())
+		os.Exit(1)
+	}
+	httpServer := &http.Server{
+		Addr:    httpAddress,
+		Handler: mux,
+	}
+
+	wg.Add(1)
+	go func() {
+		if err := httpServer.ListenAndServe(); err != nil {
+			slog.Debug(err.Error())
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
 }

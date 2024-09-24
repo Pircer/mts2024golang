@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package proto.api.v1;
+
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "api/apiv1pb";
+
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "Сервис для семинара 25 09 2024"
+  }
+};
+
+service SeminarService {
+  option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_tag) = {
+    description: "Простой сервис для работы с пользователями"
+  };
+
+  // Получить список всех пользователей
+  rpc GetUsersList(GetUserListRequest) returns (GetUserListsResponse) {
+    option (google.api.http) = {
+      get: "/users"
+    };
+  }
+
+  // Получить пользователя по ID
+  rpc GetUsersById(GetUsersByIdRequest) returns (GetUsersByIdResponse) {
+    option (google.api.http) = {
+      get: "/users/{user_id}"
+    };
+  }
+
+  // Создать нового пользователя
+  rpc CreateUser(CreateUsersRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/users"
+      body: "*"
+    };
+  }
+}
+
+message User {
+  // ID пользователя
+  int32 id = 1;
+  // Имя пользователя
+  string name = 2;
+  // Возраст пользователя
+  string age = 3;
+}
+
+message CreateUsersRequest {
+  // Имя пользователя
+  string name = 1;
+  // Возраст пользователя
+  int32 age = 2;
+}
+
+message CreateUserResponse {
+  // Пользователь
+  User user = 1;
+}
+
+message GetUsersByIdRequest {
+  // ID пользователя
+  int32 user_id = 1;
+}
+
+message GetUsersByIdResponse {
+  // Пользователь
+  User user = 1;
+}
+
+message GetUserListRequest {}
+
+message GetUserListsResponse {
+   //  Список пользователей
+  repeated User users = 1;
+}
