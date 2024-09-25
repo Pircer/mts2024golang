@@ -1,0 +1,7 @@
+Токен
+7567274762:AAF6dN83dtB0h3TaOBWVtuoyF4BHATbaQcs
+
+API
+https://core.telegram.org/bots/api
+
+Задача - отправить самому себе сообщение от бота
